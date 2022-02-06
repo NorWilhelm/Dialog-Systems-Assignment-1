@@ -1,6 +1,7 @@
 
 import requests
 import json # TODO: Remove? -For making the JSON beautiful - May not be needed
+import time
 import pandas as pd 
 
 CLIENT_ID = '-JCzTg4Ls5r0lRxKK9XTzw'
@@ -27,8 +28,8 @@ headers = {**headers, **{'Authorization': f"bearer {TOKEN}"}}
 
 # while the token is valid (~2 hours) we just add headers=headers to our requests
 # Getting the "Hot" posts of /r/AskReddit
-response = requests.get("https://oauth.reddit.com/r/AskReddit/hot?limit=1",
-                   headers=headers, params={'limit': '1'}) # TODO: Remove limit
+response = requests.get("https://oauth.reddit.com/r/AskReddit/hot",
+                   headers=headers, params={'limit': '200'}) # TODO: Remove limit
 
 # Easy to read JSON format
 #print(json.dumps(response.json(), indent=4, sort_keys=True))
@@ -46,12 +47,28 @@ for post in response.json()['data']['children']:
                 'score': post['data']['score']
                 # 'full name': post['kind'] + '_' + post['data']['id']
         }, ignore_index=True)
-        post_req = requests.get("https://oauth.reddit.com/r/AskReddit/comments/" + post['data']['id'],
-                headers=headers)
-        #for comment in post_req.json():
-        #        print(comment)
-        #comments = comments.append({
-        #}, ignore_index=True)
+
+        time.sleep(1) # To not exceed reddit's limit of 60 calls per minute.
+        
+        # Not Ideal because this leads to very many requests which will take a long time
+        # I did not find another way of doing this.
+        response_comments = requests.get("https://oauth.reddit.com/r/AskReddit/comments/" + post['data']['id'],
+                headers=headers, params={'limit': '2'}) # TODO: Remove limit
+
+        for comment in response_comments.json():
+                comments = comments.append({
+                        #'author fullname': comment['author_fullname'],
+                        #'id': comment['data']['id'],
+                        #'created_utc': comment['data']['created_utc'],
+                        #'parent_id': comment['data']['parent_id'],
+                        'body': comment['data']['body']
+                }, ignore_index=True)
+                print(comment)
+
+
+posts.to_csv('reddit_posts.csv')
+comments.to_csv('reddit_comments.csv')
+
 
 # Prints data to terminal in a pretty way
 #with pd.option_context('display.max_rows', None, 'display.max_columns', None):
